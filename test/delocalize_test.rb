@@ -123,6 +123,9 @@ class DelocalizeActiveRecordTest < ActiveRecord::TestCase
 
     @product.released_on = "aa"
     assert_nil @product.released_on
+
+    @product.price = nil # this tests NULL-able numeric columns
+    assert_nil @product.price
   end
 
   test "doesn't raise when attribute is nil" do
