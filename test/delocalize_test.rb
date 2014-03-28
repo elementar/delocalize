@@ -47,10 +47,8 @@ class DelocalizeActiveRecordTest < ActiveRecord::TestCase
   end
 
   test "delocalizes localized date without year" do
-    date = Date.civil(Date.today.year, 10, 19)
-
-    @product.released_on = '19. Okt'
-    assert_equal date, @product.released_on
+    @product.released_on = "19. Okt"
+    assert_time_attributes(@product.released_on, :month => 10, :day => 19)
   end
 
   test "delocalizes localized datetime with year" do
@@ -87,14 +85,14 @@ class DelocalizeActiveRecordTest < ActiveRecord::TestCase
       now = Date.today
       time = Time.zone.local(now.year, now.month, now.day, 9, 0, 0)
       @product.cant_think_of_a_sensible_time_field = '09:00 Uhr'
-      assert_equal time, @product.cant_think_of_a_sensible_time_field
+      assert_time_attributes(@product.cant_think_of_a_sensible_time_field, :hour => 9, :min => 0, :sec => 0)
     end
   else
     test "delocalizes localized time (non-DST)" do
       now = Date.today
       time = Time.zone.local(now.year, now.month, now.day, 8, 0, 0)
       @product.cant_think_of_a_sensible_time_field = '08:00 Uhr'
-      assert_equal time, @product.cant_think_of_a_sensible_time_field
+      assert_time_attributes(@product.cant_think_of_a_sensible_time_field, :hour => 8, :min => 0, :sec => 0)
     end
   end
 
@@ -111,14 +109,12 @@ class DelocalizeActiveRecordTest < ActiveRecord::TestCase
     @product.released_on = '2009/10/19'
     assert_equal date, @product.released_on
 
-    time = Time.zone.local(2009, 3, 1, 12, 0, 0)
     @product.published_at = '2009/03/01 12:00'
-    assert_equal time, @product.published_at
+    assert_time_attributes(@product.published_at, :year => 2009, :month => 3, :day => 1,
+                                                  :hour => 12,   :min => 0,   :sec => 0)
 
-    now = Time.current
-    time = Time.zone.local(now.year, now.month, now.day, 8, 0, 0)
     @product.cant_think_of_a_sensible_time_field = '08:00'
-    assert_equal time, @product.cant_think_of_a_sensible_time_field
+    assert_time_attributes(@product.cant_think_of_a_sensible_time_field, :hour => 8, :min => 0, :sec => 0)
   end
 
   test "should return nil if the input is empty or invalid" do
@@ -210,6 +206,19 @@ class DelocalizeActiveRecordTest < ActiveRecord::TestCase
 
     I18n.t('date.month_names')[3] = orig_march
     I18n.t('date.abbr_day_names')[1] = orig_monday
+  end
+
+  private
+  def assert_time_attributes(time, attributes)
+    # NOTE: Timecop has some trouble with DateTime.strptime, which some tests will invoke,
+    # therefore we can't be sure about the year/month/etc... it might be correctly frozen
+    # to 2009 or it might be the current one, this is why we're only checking whether the
+    # relevant month/day/hour/minutes/seconds are correct.
+    # see https://github.com/travisjeffery/timecop/pull/121
+    # This approach also fixes some issues with Timecop's out of whack timezone inconsistencies.
+    attributes.each_pair do |method, value|
+      assert_equal time.send(method), value
+    end
   end
 end
 
