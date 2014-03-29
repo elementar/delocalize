@@ -1,28 +1,27 @@
-ActiveRecord::ConnectionAdapters::Column.class_eval do
-  def type_cast_with_localization(value)
-    new_value = value
-    if date?
-      new_value = Date.parse_localized(value) rescue value
-    elsif time?
-      new_value = Time.parse_localized(value) rescue value
-    elsif number?
-      new_value = Numeric.parse_localized(value) rescue value
+ActiveRecord::Base.class_eval do
+  def _field_changed?(attr, old, value)
+    if I18n.delocalization_enabled? && value.kind_of?(String) && column = column_for_attribute(attr)
+      value = column.delocalise_value(value)
     end
-    type_cast_without_localization(new_value)
+    super
+  end
+end
+
+ActiveRecord::ConnectionAdapters::Column.class_eval do
+  def delocalise_value(value)
+    if date?
+      Date.parse_localized(value) rescue value
+    elsif time?
+      Time.parse_localized(value) rescue value
+    elsif number?
+      Numeric.parse_localized(value) rescue value
+    else
+      value
+    end
   end
 
-  alias_method_chain :type_cast, :localization
-
   def type_cast_for_write_with_localization(value)
-    if number? && I18n.delocalization_enabled?
-      value = Numeric.parse_localized(value)
-      if type == :integer
-        value = value.to_i
-      else
-        value = value.to_f
-      end
-    end
-    type_cast_for_write_without_localization(value)
+    type_cast_for_write_without_localization(I18n.delocalization_enabled? ? delocalise_value(value) : value)
   end
 
   alias_method_chain :type_cast_for_write, :localization
